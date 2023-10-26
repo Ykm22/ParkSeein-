@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useReducer, useState } from "react";
 import { getLogger } from "../utils";
 import { getParks } from './parkApi';
 
@@ -22,16 +22,44 @@ export interface ParksProps extends ParksState {
   addPark: () => void,
 }
 
+interface ActionProps {
+  type: string,
+  payload?: any,
+}
+
+const FETCH_PARKS_STARTED = 'FETCH_PARKS_STARTED';
+const FETCH_PARKS_SUCCEEDED = 'FETCH_PARKS_SUCCEEDED';
+const FETCH_PARKS_FAILED = 'FETCH_PARKS_FAILED';
+
+const initialState: ParksState = {
+  parks: undefined,
+  fetching: false,
+  fetchingError: undefined,
+};
+
+const reducer: (state: ParksState, action: ActionProps) => ParksState =
+  (state, {type, payload}) => {
+    switch(type) {
+      case FETCH_PARKS_STARTED:
+        return { ...state, fetching: true };
+      case FETCH_PARKS_SUCCEEDED:
+        return { ...state, parks: payload.parks, fetching: false };
+      case FETCH_PARKS_FAILED:
+        return { ...state, fetchingError: payload.error, fetching: false };
+      default:
+        return state;
+    }
+  };
+
 export const useParks: () => ParksProps = () => {
-  const [fetching, setFetching] = useState<boolean>(false);
-  const [fetchingError, setFetchingError] = useState<Error>();
-  const [parks, setParks] = useState<ParkProps[]>();
+  const [state, dispatch] = useReducer(reducer, initialState);
+  const { parks, fetching, fetchingError } = state;
 
   const addPark = useCallback(() => {
     log('addItem - TODO');
   }, []);
 
-  useEffect(getParksEffect, []);
+  useEffect(getParksEffect, [dispatch]);
   log(`returns - fetching = ${fetching}, parks = ${JSON.stringify(parks)}`);
 
   return {
@@ -51,19 +79,17 @@ export const useParks: () => ParksProps = () => {
     async function fetchParks() {
       try {
         log('fetchParks started');
-        setFetching(true);
+        dispatch({ type: FETCH_PARKS_STARTED });
         const parks = await getParks();
 
         log('fetchParks succeeded');
         if(!canceled){
-          setFetching(false);
-          setParks(parks);
+          dispatch({ type: FETCH_PARKS_SUCCEEDED, payload: { parks }});
         }
       } catch (error) {
         log('fetchParks failed');
         if(!canceled) {
-          setFetching(false);
-          setFetchingError(error as Error);
+          dispatch({ type: FETCH_PARKS_FAILED, payload: { error }});
         }
       }
     }
