@@ -1,5 +1,6 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { getLogger } from "../utils";
+import { getParks } from './parkApi';
 
 const log = getLogger('useParks');
 
@@ -11,24 +12,61 @@ export interface ParkProps {
   reaches_eco_target: boolean;
 }
 
-export interface ParksProps {
-  parks: ParkProps[],
+export interface ParksState {
+  parks?: ParkProps[],
+  fetching: boolean,
+  fetchingError?: Error,
+}
+
+export interface ParksProps extends ParksState {
   addPark: () => void,
 }
 
 export const useParks: () => ParksProps = () => {
-  const [parks, setParks] = useState([
-    {id:"0", description: "Park 1", squared_kms:22, last_review: new Date(Date.now()), reaches_eco_target: true},
-    {id:"1", description: "Park 2", squared_kms:30, last_review: new Date(Date.now()), reaches_eco_target: false},
-  ]);
+  const [fetching, setFetching] = useState<boolean>(false);
+  const [fetchingError, setFetchingError] = useState<Error>();
+  const [parks, setParks] = useState<ParkProps[]>();
+
   const addPark = useCallback(() => {
-    const id = `${parks.length + 1}`;
-    log('addPark');
-    setParks(parks.concat({id, description: "new park", squared_kms:40, last_review: new Date(Date.now()), reaches_eco_target: false}));
-  }, [parks]);
-  log('returns');
+    log('addItem - TODO');
+  }, []);
+
+  useEffect(getParksEffect, []);
+  log(`returns - fetching = ${fetching}, parks = ${JSON.stringify(parks)}`);
+
   return {
     parks,
+    fetching,
+    fetchingError,
     addPark,
   };
+
+  function getParksEffect() {
+    let canceled = false;
+    fetchParks();
+    return () => {
+      canceled = true;
+    }
+
+    async function fetchParks() {
+      try {
+        log('fetchParks started');
+        setFetching(true);
+        const parks = await getParks();
+
+        log('fetchParks succeeded');
+        if(!canceled){
+          setFetching(false);
+          setParks(parks);
+        }
+      } catch (error) {
+        log('fetchParks failed');
+        if(!canceled) {
+          setFetching(false);
+          setFetchingError(error as Error);
+        }
+      }
+    }
+  }
+
 };
