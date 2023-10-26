@@ -3,8 +3,8 @@ import { ParkProps } from "./Park";
 import { getLogger } from "../utils";
 
 const log = getLogger('parkApi');
-const baseUrl = 'http://localhost:3000';
-const parkUrl = `${baseUrl}/parks`;
+const baseUrl = 'localhost:3000';
+const parkUrl = `http://${baseUrl}/parks`;
 
 const config = {
   headers: {
@@ -29,8 +29,6 @@ function withLogs<T>(promise: Promise<ResponseProps<T>>, fnName: string): Promis
     });
 }
 
-
-
 export const getParks: () => Promise<ParkProps[]> = () => {
   return withLogs(axios.get(parkUrl, config), 'getParks');
 }
@@ -41,4 +39,36 @@ export const createPark: (park: ParkProps) => Promise<ParkProps[]> = park => {
 
 export const updatePark: (park: ParkProps) => Promise<ParkProps[]> = park => {
   return withLogs(axios.put(`${parkUrl}/${park.id}`, park, config), 'updatePark');
+}
+
+interface MessageData {
+  event: string,
+  payload: {
+    park: ParkProps;
+  };
+}
+
+export const newWebSocket = (onMessage: (data: MessageData) => void) => {
+  const ws = new WebSocket(`ws://${baseUrl}`);
+  ws.onopen = () => {
+    log('web socket onopen');
+  };
+  
+  ws.onclose = () => {
+    log('web socket onclose');
+  };
+
+  ws.onerror = error => {
+    log(error);
+    log(`web socket onerror, ${error}`);
+  };
+
+  ws.onmessage = messageEvent => {
+    log('web socket onmessage');
+    onMessage(JSON.parse(messageEvent.data));
+  };
+  
+  return () => {
+    ws.close();
+  }
 }

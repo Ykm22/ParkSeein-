@@ -2,7 +2,7 @@ import { createContext, useCallback, useEffect, useReducer } from "react";
 import { ParkProps } from "./Park";
 import PropTypes from 'prop-types';
 import { getLogger } from "../utils";
-import { getParks, updatePark, createPark } from "./parkApi";
+import { getParks, updatePark, createPark, newWebSocket } from "./parkApi";
 
 const log = getLogger('ParkProvider');
 
@@ -71,7 +71,9 @@ const reducer: (state: ParksState, action: ActionProps) => ParksState =
 export const ParkProvider: React.FC<ParkProviderProps> = ({ children }) => {
   const [state, dispatch] = useReducer(reducer, initialState);
   const { parks, fetching, fetchingError, saving, savingError } = state;
+  
   useEffect(getParksEffect, []);
+  useEffect(wsEffect, []);
 
   const savePark = useCallback<SaveParkFn>(saveParkCallback, []);
   const value = { parks, fetching, fetchingError, saving, savingError, savePark };
@@ -118,6 +120,30 @@ export const ParkProvider: React.FC<ParkProviderProps> = ({ children }) => {
     } catch (error) {
       log('savePark failed');
       dispatch({ type: SAVE_PARK_FAILED, payload: { error } });
+    }
+  }
+
+  function wsEffect() {
+    let canceled = false;
+    log('wsEffect - connecting');
+
+    const closeWebSocket = newWebSocket(message => {
+      if (canceled) {
+        return;
+      }
+
+      const { event, payload: { park }} = message;
+      log(`ws message, park ${event}`);
+
+      if (event === 'created' || event === 'updated') {
+        dispatch({ type: SAVE_PARK_SUCCEEDED, payload: { park }});
+      }
+    });
+
+    return () => {
+      log('wsEffect - disconnecting');
+      canceled = true;
+      closeWebSocket();
     }
   }
 };
