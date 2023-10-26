@@ -1,16 +1,15 @@
 import { IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonList, IonLoading, IonPage, IonTitle, IonToolbar } from '@ionic/react';
 import { add } from 'ionicons/icons';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useContext } from 'react';
 import Park from './Park';
 import { getLogger } from '../utils';
-import { useParks } from './useParks';
-
+import { ParkContext } from './ParkProvider';
+import { RouteComponentProps } from 'react-router';
 
 const log = getLogger('ParkList');
 
-const ParkList: React.FC = () => {
-  const { parks, fetching, fetchingError, addPark } = useParks();
-
+const ParkList: React.FC<RouteComponentProps> = ({ history }) => {
+  const { parks, fetching, fetchingError } = useContext(ParkContext);
   log('render');  
   return (
     <IonPage>
@@ -23,13 +22,13 @@ const ParkList: React.FC = () => {
         <IonLoading isOpen={fetching} message="Loading parks"/>
         {parks && (
           <IonList>
-            {parks.map((
-              {id, description, squared_kms, last_review, reaches_eco_target}) => 
+            {parks.map(({id, description, squared_kms, last_review, reaches_eco_target}) => 
               <Park key={id} id={id} 
                 description={description} 
                 squared_kms={squared_kms} 
                 last_review={last_review} 
                 reaches_eco_target={reaches_eco_target}
+                onEdit={id => history.push(`/park/${id}`)}
               />
             )}
           </IonList>
@@ -38,7 +37,7 @@ const ParkList: React.FC = () => {
           <div>{fetchingError.message || 'Failed to load parks'}</div>
         )}
         <IonFab vertical='bottom' horizontal='end' slot='fixed'>
-          <IonFabButton onClick={addPark}>
+          <IonFabButton onClick={() => history.push('/park')}>
               <IonIcon icon={add}/>
           </IonFabButton>
         </IonFab>

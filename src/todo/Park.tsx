@@ -1,6 +1,7 @@
-import React from 'react';
+import { IonItem, IonLabel } from '@ionic/react';
+import React, { memo } from 'react';
 
-interface ParkProps {
+export interface ParkProps {
   id?: string;
   description: string;
   squared_kms: number;
@@ -8,16 +9,16 @@ interface ParkProps {
   reaches_eco_target: boolean;
 }
 
-const Item: React.FC<ParkProps> = ({ id, description, squared_kms, last_review, reaches_eco_target }) => {
+interface ParkPropsExt extends ParkProps {
+  onEdit: (id?: string) => void;
+}
+
+const Park: React.FC<ParkPropsExt> = ({ id, description, squared_kms, last_review, reaches_eco_target, onEdit }) => {
   return (
-    <div>
-        ID = {id}<br/>
-        {description}<br/>
-        Squared kms = {squared_kms}<br/>
-        Does it reach ecological target? {reaches_eco_target ? "Yes" : "No"}<br/>
-        Last review: {last_review.getDate() + "/" + last_review.getMonth() + "/" + last_review.getFullYear()}
-    </div>
+    <IonItem onClick={() => onEdit(id)}>
+      <IonLabel>{description}</IonLabel>
+    </IonItem>
   );
 };
 
-export default Item;
+export default memo(Park);
