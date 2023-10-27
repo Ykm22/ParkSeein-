@@ -1,5 +1,5 @@
 import axios from "axios";
-import { ParkProps } from "./Park";
+import { ParkProps } from "../models/Park";
 import { getLogger } from "../utils";
 
 const log = getLogger('parkApi');

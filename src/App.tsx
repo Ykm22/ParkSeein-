@@ -20,8 +20,8 @@ import '@ionic/react/css/display.css';
 
 /* Theme variables */
 import './theme/variables.css';
-import { ParkList, ParkEdit } from './todo';
-import { ParkProvider } from './todo/ParkProvider';
+import { ParkList, ParkEdit } from './components';
+import { ParkProvider } from './contexts/ParkProvider';
 
 setupIonicReact();
 

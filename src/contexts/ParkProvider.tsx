@@ -1,8 +1,8 @@
 import { createContext, useCallback, useEffect, useReducer } from "react";
-import { ParkProps } from "./Park";
+import { ParkProps } from "../models/Park";
 import PropTypes from 'prop-types';
 import { getLogger } from "../utils";
-import { getParks, updatePark, createPark, newWebSocket } from "./parkApi";
+import { getParks, updatePark, createPark, newWebSocket } from "../network/parkApi";
 
 const log = getLogger('ParkProvider');
 
@@ -99,6 +99,7 @@ export const ParkProvider: React.FC<ParkProviderProps> = ({ children }) => {
         const parks = await getParks();
         log('fetchParks succeeded');
         if (!canceled) {
+          parks.forEach(park => park.last_review = new Date(park.last_review));
           dispatch({ type: FETCH_PARKS_SUCCEEDED, payload: { parks }});
         }
       } catch (error) {

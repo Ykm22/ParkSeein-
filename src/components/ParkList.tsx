@@ -1,9 +1,9 @@
 import { IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonList, IonLoading, IonPage, IonTitle, IonToolbar } from '@ionic/react';
 import { add } from 'ionicons/icons';
 import React, { useContext } from 'react';
-import Park from './Park';
+import Park from '../models/Park';
 import { getLogger } from '../utils';
-import { ParkContext } from './ParkProvider';
+import { ParkContext } from '../contexts/ParkProvider';
 import { RouteComponentProps } from 'react-router';
 
 const log = getLogger('ParkList');
