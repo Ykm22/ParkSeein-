@@ -4,6 +4,7 @@ import { ParkContext } from "../contexts/ParkProvider";
 import { ParkProps } from "../models/Park";
 import { getLogger } from "../utils";
 import { IonButton, IonButtons, IonCheckbox, IonContent, IonDatetime, IonHeader, IonInput, IonItem, IonLabel, IonList, IonLoading, IonModal, IonPage, IonTitle, IonToolbar, useIonPicker } from "@ionic/react";
+import { AuthContext } from "../auth";
 
 const log = getLogger('ParkEdit');
 
@@ -22,7 +23,7 @@ const ParkEdit: React.FC<ParkEditProps> = ({ history, match }) => {
   useEffect(() => {
     log('useEffect');
     const routeId = match.params.id || '';
-    const park = parks?.find(park => park.id === routeId);
+    const park = parks?.find(park => park._id === routeId);
     setPark(park);
     if (park) {
       setDescription(park.description);

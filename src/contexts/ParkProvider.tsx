@@ -1,8 +1,9 @@
-import { createContext, useCallback, useEffect, useReducer } from "react";
+import { createContext, useCallback, useContext, useEffect, useReducer } from "react";
 import { ParkProps } from "../models/Park";
 import PropTypes from 'prop-types';
 import { getLogger } from "../utils";
 import { getParks, updatePark, createPark, newWebSocket } from "../network/parkApi";
+import { AuthContext } from "../auth";
 
 const log = getLogger('ParkProvider');
 
@@ -54,7 +55,7 @@ const reducer: (state: ParksState, action: ActionProps) => ParksState =
       case SAVE_PARK_SUCCEEDED:
         const parks = [ ...(state.parks || [])];
         const saved_park = payload.park;
-        const index = parks.findIndex(park => park.id === saved_park.id);
+        const index = parks.findIndex(park => park._id === saved_park._id);
         if(index === -1) {
           parks.splice(0, 0, saved_park);
         } else {
@@ -72,8 +73,10 @@ export const ParkProvider: React.FC<ParkProviderProps> = ({ children }) => {
   const [state, dispatch] = useReducer(reducer, initialState);
   const { parks, fetching, fetchingError, saving, savingError } = state;
   
-  useEffect(getParksEffect, []);
-  useEffect(wsEffect, []);
+  const { token } = useContext(AuthContext);
+
+  useEffect(getParksEffect, [token]);
+  useEffect(wsEffect, [token]);
 
   const savePark = useCallback<SaveParkFn>(saveParkCallback, []);
   const value = { parks, fetching, fetchingError, saving, savingError, savePark };
@@ -87,7 +90,11 @@ export const ParkProvider: React.FC<ParkProviderProps> = ({ children }) => {
 
   function getParksEffect() {
     let canceled = false;
-    fetchParks();
+    if (token) {
+      log('fetching parks');
+      fetchParks();
+    }
+
     return () => {
       canceled = true;
     }
@@ -96,7 +103,7 @@ export const ParkProvider: React.FC<ParkProviderProps> = ({ children }) => {
       try {
         log('fetchParks');
         dispatch({ type: FETCH_PARKS_STARTED });
-        const parks = await getParks();
+        const parks = await getParks(token);
         log('fetchParks succeeded');
         if (!canceled) {
           parks.forEach(park => park.last_review = new Date(park.last_review));
@@ -115,7 +122,7 @@ export const ParkProvider: React.FC<ParkProviderProps> = ({ children }) => {
     try {
       log('savePark started');
       dispatch({ type: SAVE_PARK_STARTED });
-      const savedPark = await (park.id ? updatePark(park) : createPark(park));
+      const savedPark = await (park._id ? updatePark(token, park) : createPark(token, park));
       log('savePark succeeded');
       dispatch({ type: SAVE_PARK_SUCCEEDED, payload: { park: savedPark } });
     } catch (error) {
@@ -127,24 +134,26 @@ export const ParkProvider: React.FC<ParkProviderProps> = ({ children }) => {
   function wsEffect() {
     let canceled = false;
     log('wsEffect - connecting');
-
-    const closeWebSocket = newWebSocket(message => {
-      if (canceled) {
-        return;
-      }
-
-      const { event, payload: { park }} = message;
-      log(`ws message, park ${event}`);
-
-      if (event === 'created' || event === 'updated') {
-        dispatch({ type: SAVE_PARK_SUCCEEDED, payload: { park }});
-      }
-    });
+    let closeWebSocket: () => void;
+    if (token?.trim()){
+      closeWebSocket = newWebSocket(token, message => {
+        if (canceled) {
+          return;
+        }
+  
+        const { event, payload: { park }} = message;
+        log(`ws message, park ${event}`);
+  
+        if (event === 'created' || event === 'updated') {
+          dispatch({ type: SAVE_PARK_SUCCEEDED, payload: { park }});
+        }
+      });
+    }
 
     return () => {
       log('wsEffect - disconnecting');
       canceled = true;
-      closeWebSocket();
+      closeWebSocket?.();
     }
   }
 };

@@ -1,10 +1,11 @@
 import axios from "axios";
 import { ParkProps } from "../models/Park";
 import { getLogger } from "../utils";
+import { authConfig } from "../core";
 
 const log = getLogger('parkApi');
 const baseUrl = 'localhost:3000';
-const parkUrl = `http://${baseUrl}/parks`;
+const parkUrl = `http://${baseUrl}/api/parks`;
 
 const config = {
   headers: {
@@ -29,16 +30,16 @@ function withLogs<T>(promise: Promise<ResponseProps<T>>, fnName: string): Promis
     });
 }
 
-export const getParks: () => Promise<ParkProps[]> = () => {
-  return withLogs(axios.get(parkUrl, config), 'getParks');
+export const getParks: (token: string) => Promise<ParkProps[]> = token => {
+  return withLogs(axios.get(parkUrl, authConfig(token)), 'getParks');
 }
 
-export const createPark: (park: ParkProps) => Promise<ParkProps[]> = park => {
-  return withLogs(axios.post(parkUrl, park, config), 'createPark');
+export const createPark: (token: string, park: ParkProps) => Promise<ParkProps[]> = (token, park) => {
+  return withLogs(axios.post(parkUrl, park, authConfig(token)), 'createPark');
 }
 
-export const updatePark: (park: ParkProps) => Promise<ParkProps[]> = park => {
-  return withLogs(axios.put(`${parkUrl}/${park.id}`, park, config), 'updatePark');
+export const updatePark: (token: string, park: ParkProps) => Promise<ParkProps[]> = (token, park) => {
+  return withLogs(axios.put(`${parkUrl}/${park._id}`, park, authConfig(token)), 'updatePark');
 }
 
 interface MessageData {
@@ -48,10 +49,11 @@ interface MessageData {
   };
 }
 
-export const newWebSocket = (onMessage: (data: MessageData) => void) => {
+export const newWebSocket = (token:string, onMessage: (data: MessageData) => void) => {
   const ws = new WebSocket(`ws://${baseUrl}`);
   ws.onopen = () => {
     log('web socket onopen');
+    ws.send(JSON.stringify({ type: 'authorization', payload: { token }}));
   };
   
   ws.onclose = () => {

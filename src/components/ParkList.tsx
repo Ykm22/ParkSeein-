@@ -22,8 +22,8 @@ const ParkList: React.FC<RouteComponentProps> = ({ history }) => {
         <IonLoading isOpen={fetching} message="Loading parks"/>
         {parks && (
           <IonList>
-            {parks.map(({id, description, squared_kms, last_review, reaches_eco_target}) => 
-              <Park key={id} id={id} 
+            {parks.map(({_id, description, squared_kms, last_review, reaches_eco_target}) => 
+              <Park key={_id} _id={_id}
                 description={description} 
                 squared_kms={squared_kms} 
                 last_review={last_review} 

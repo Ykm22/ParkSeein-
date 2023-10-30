@@ -22,21 +22,25 @@ import '@ionic/react/css/display.css';
 import './theme/variables.css';
 import { ParkList, ParkEdit } from './components';
 import { ParkProvider } from './contexts/ParkProvider';
+import { AuthProvider, Login, PrivateRoute } from './auth';
 
 setupIonicReact();
 
 const App: React.FC = () => (
   <IonApp>
-    <ParkProvider>
-      <IonReactRouter>
-        <IonRouterOutlet>
-          <Route path="/parks" component={ParkList} exact={true}/>
-          <Route path="/park" component={ParkEdit} exact={true}/>
-          <Route path="/park/:id" component={ParkEdit} exact={true}/>
+    <IonReactRouter>
+      <IonRouterOutlet>
+        <AuthProvider>
+          <Route path="/login" component={Login} exact={true}/>
+          <ParkProvider>
+            <PrivateRoute path="/parks" component={ParkList} exact={true}/>
+            <PrivateRoute path="/park" component={ParkEdit} exact={true}/>
+            <PrivateRoute path="/park/:id" component={ParkEdit} exact={true}/>
+          </ParkProvider>
           <Route exact path="/" render={() => <Redirect to="/parks"/>}/>
-        </IonRouterOutlet>
-      </IonReactRouter>
-    </ParkProvider>
+        </AuthProvider>
+      </IonRouterOutlet>
+    </IonReactRouter>
   </IonApp>
 );
 
