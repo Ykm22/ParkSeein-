@@ -39,6 +39,7 @@ export const createPark: (token: string, park: ParkProps) => Promise<ParkProps[]
 }
 
 export const updatePark: (token: string, park: ParkProps) => Promise<ParkProps[]> = (token, park) => {
+  // !token is empty string on update from ParkEdit
   return withLogs(axios.put(`${parkUrl}/${park._id}`, park, authConfig(token)), 'updatePark');
 }
 

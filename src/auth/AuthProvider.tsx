@@ -1,11 +1,14 @@
 import React, { createContext, useCallback, useEffect, useState } from "react";
 import { getLogger } from "../utils";
-import PropTypes from 'prop-types';
-import { login as loginApi } from './authApi';
+import PropTypes from "prop-types";
+import { login as loginApi, obtainToken } from "./authApi";
+import { Preferences } from "@capacitor/preferences";
 
-const log = getLogger('AuthProvider');
+const log = getLogger("AuthProvider");
 
 type LoginFn = (username?: string, password?: string) => void;
+type TokenCheckFn = () => void;
+export type HandleLogoutFn = () => void;
 
 export interface AuthState {
   authenticationError: Error | null;
@@ -16,6 +19,8 @@ export interface AuthState {
   username?: string;
   password?: string;
   token: string;
+  token_check?: TokenCheckFn;
+  handleLogout?: HandleLogoutFn;
 }
 
 const initialState: AuthState = {
@@ -23,37 +28,91 @@ const initialState: AuthState = {
   isAuthenticating: false,
   authenticationError: null,
   pendingAuthentication: false,
-  token: '',
-}
+  token: "",
+};
 
 export const AuthContext = createContext<AuthState>(initialState);
 
 interface AuthProviderProps {
-  children: PropTypes.ReactNodeLike,
+  children: PropTypes.ReactNodeLike;
 }
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [state, setState] = useState<AuthState>(initialState);
-  const { isAuthenticated, isAuthenticating, authenticationError, pendingAuthentication, token } = state;
+  const {
+    isAuthenticated,
+    isAuthenticating,
+    authenticationError,
+    pendingAuthentication,
+    token,
+  } = state;
+
+  // const token_check = useCallback<TokenCheckFn>(tokenCheck, []);
+
+  const token_check = () => {
+    log("token check");
+    checkToken();
+
+    async function checkToken() {
+      try {
+        const result = await Preferences.get({ key: "jwt" });
+        if (result.value) {
+          setState({
+            ...state,
+            isAuthenticated: true,
+            token: result.value,
+          });
+        }
+      } catch (err) {
+        log(`Error fetching checking token ${err}`);
+      }
+    }
+  };
 
   const login = useCallback<LoginFn>(loginCallback, []);
   useEffect(authenticationEffect, [pendingAuthentication]);
 
-  const value = { isAuthenticated, login, isAuthenticating, authenticationError, token };
-  log('render');
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+  function handleLogout() {
+    log("logging out");
+    logout();
+
+    async function logout() {
+      try {
+        const result = await Preferences.get({ key: "jwt" });
+        await Preferences.remove({ key: "jwt" });
+        if (result.value) {
+          setState({
+            ...state,
+            isAuthenticated: false,
+            pendingAuthentication: false,
+            token: "",
+          });
+        }
+      } catch (err) {
+        log("error in logout");
+      }
+    }
+  }
+
+  const value = {
+    isAuthenticated,
+    login,
+    isAuthenticating,
+    authenticationError,
+    token,
+    token_check,
+    handleLogout,
+  };
+  log("render");
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 
   function loginCallback(username?: string, password?: string): void {
-    log('login');
+    log("login");
     setState({
       ...state,
       pendingAuthentication: true,
       username,
-      password
+      password,
     });
   }
 
@@ -62,25 +121,26 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     authenticate();
     return () => {
       canceled = true;
-    }
+    };
 
     async function authenticate() {
       if (!pendingAuthentication) {
-        log('authenticate, !pendingAuthentication, return');
+        log("authenticate, !pendingAuthentication, return");
         return;
       }
       try {
-        log('authenticate...');
+        log("authenticate...");
         setState({
           ...state,
           isAuthenticating: true,
         });
         const { username, password } = state;
-        const { token } = await loginApi(username, password);
+        const { token } = await obtainToken(username, password);
+        // const { token } = await loginApi(username, password);
         if (canceled) {
           return;
         }
-        log('authenticate succeeded');
+        log("authenticate succeeded");
         setState({
           ...state,
           token,
@@ -92,7 +152,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         if (canceled) {
           return;
         }
-        log('authenticate failed');
+        log("authenticate failed");
         setState({
           ...state,
           authenticationError: error as Error,
@@ -102,4 +162,4 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
     }
   }
-}
+};
