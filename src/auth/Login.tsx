@@ -11,9 +11,9 @@ import {
   IonLoading,
   IonPage,
   IonTitle,
+  IonToast,
   IonToolbar,
 } from "@ionic/react";
-import { Preferences } from "@capacitor/preferences";
 
 const log = getLogger("Login");
 
@@ -29,7 +29,10 @@ export const Login: React.FC<RouteComponentProps> = ({ history }) => {
     login,
     token_check,
     authenticationError,
+    networkStatus,
   } = useContext(AuthContext);
+  log(`connected = ${networkStatus.connected}`);
+
   const [state, setState] = useState<LoginState>({});
 
   useEffect(() => {
@@ -58,9 +61,9 @@ export const Login: React.FC<RouteComponentProps> = ({ history }) => {
   );
 
   const handleLogin = useCallback(() => {
-    log("handleLogin...");
-    login?.(username, password);
-  }, [username, password]);
+    log(`handleLogin...xd`);
+    login?.(username, password, networkStatus.connected);
+  }, [username, password, networkStatus]);
 
   log("render");
   useEffect(() => {

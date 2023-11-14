@@ -15,6 +15,10 @@ import {
   newWebSocket,
 } from "../network/parkApi";
 import { AuthContext, HandleLogoutFn } from "../auth";
+import { Preferences } from "@capacitor/preferences";
+import { NetworkState, useNetwork } from "../network/useNetwork";
+import { useIonToast } from "@ionic/react";
+import uuid from "uuid-random";
 
 const log = getLogger("ParkProvider");
 
@@ -28,6 +32,7 @@ export interface ParksState {
   savingError?: Error | null;
   savePark?: SaveParkFn;
   handleLogout?: HandleLogoutFn;
+  networkStatus?: NetworkState;
 }
 
 const initialState: ParksState = {
@@ -69,6 +74,7 @@ const reducer: (state: ParksState, action: ActionProps) => ParksState = (
     case SAVE_PARK_SUCCEEDED:
       const parks = [...(state.parks || [])];
       const saved_park = payload.park;
+      log(`saved_park_id = ${saved_park._id}`);
       const index = parks.findIndex((park) => park._id === saved_park._id);
       if (index === -1) {
         parks.splice(0, 0, saved_park);
@@ -87,12 +93,18 @@ export const ParkProvider: React.FC<ParkProviderProps> = ({ children }) => {
   const [state, dispatch] = useReducer(reducer, initialState);
   const { parks, fetching, fetchingError, saving, savingError } = state;
 
-  const { token, handleLogout } = useContext(AuthContext);
+  const { token, handleLogout, networkStatus } = useContext(AuthContext);
+  const [presentToast] = useIonToast();
 
-  useEffect(getParksEffect, [token]);
+  useEffect(getParksEffect, [token, networkStatus]);
   useEffect(wsEffect, [token]);
+  useEffect(connectionChangeEffect, [token, networkStatus]);
 
-  const savePark = useCallback<SaveParkFn>(saveParkCallback, [token]);
+  const savePark = useCallback<SaveParkFn>(saveParkCallback, [
+    token,
+    networkStatus,
+    presentToast,
+  ]);
   const value = {
     parks,
     fetching,
@@ -101,6 +113,7 @@ export const ParkProvider: React.FC<ParkProviderProps> = ({ children }) => {
     savingError,
     savePark,
     handleLogout,
+    networkStatus,
   };
   log("returns");
 
@@ -110,27 +123,49 @@ export const ParkProvider: React.FC<ParkProviderProps> = ({ children }) => {
     let canceled = false;
     if (token) {
       log("fetching parks");
-      fetchParks();
+      loadParks(networkStatus);
     }
 
     return () => {
       canceled = true;
     };
 
-    async function fetchParks() {
+    async function loadParks(networkStatus: NetworkState) {
+      if (!networkStatus.connected) {
+        fetchParksStorage();
+      } else {
+        fetchParksServer();
+      }
+    }
+
+    async function fetchParksStorage() {
+      log("fetchParksStorage");
+      const result = await Preferences.get({ key: "parks" });
+      if (result.value) {
+        log("fetchParksStorage succeeded");
+        const parks = JSON.parse(result.value);
+        dispatch({ type: FETCH_PARKS_SUCCEEDED, payload: { parks } });
+      }
+    }
+
+    async function fetchParksServer() {
       try {
-        log("fetchParks");
+        log("fetchParksServer");
         dispatch({ type: FETCH_PARKS_STARTED });
         const parks = await getParks(token);
-        log("fetchParks succeeded");
+        log("fetchParksServer succeeded");
         if (!canceled) {
           parks.forEach(
             (park) => (park.last_review = new Date(park.last_review))
           );
+          await Preferences.set({
+            key: "parks",
+            value: JSON.stringify(parks),
+          });
           dispatch({ type: FETCH_PARKS_SUCCEEDED, payload: { parks } });
         }
       } catch (error) {
-        log("fetchParks failed");
+        log("fetchParksServer failed");
         if (!canceled) {
           dispatch({ type: FETCH_PARKS_FAILED, payload: { error } });
         }
@@ -140,13 +175,49 @@ export const ParkProvider: React.FC<ParkProviderProps> = ({ children }) => {
 
   async function saveParkCallback(park: ParkProps) {
     try {
-      log("savePark started");
-      dispatch({ type: SAVE_PARK_STARTED });
-      const savedPark = await (park._id
-        ? updatePark(token, park)
-        : createPark(token, park));
-      log("savePark succeeded");
-      dispatch({ type: SAVE_PARK_SUCCEEDED, payload: { park: savedPark } });
+      log("saveParkCallback");
+      if (!networkStatus.connected) {
+        log("no internet connection");
+
+        presentToast({
+          message: "Data not saved.. waiting connection.. 😟",
+          duration: 2000,
+          color: "danger",
+          position: "top",
+        });
+
+        const queue_result = await Preferences.get({ key: "queue" });
+        let queue;
+        if (queue_result.value) {
+          queue = JSON.parse(queue_result.value);
+        } else {
+          queue = [];
+        }
+        let operation = {
+          park,
+          type: "unknown",
+        };
+        if (park._id) {
+          operation.type = "update";
+        } else {
+          operation.type = "save";
+          operation.park._id = uuid();
+        }
+        queue.push(operation);
+
+        await Preferences.remove({ key: "queue" });
+        await Preferences.set({ key: "queue", value: JSON.stringify(queue) });
+
+        dispatch({ type: SAVE_PARK_SUCCEEDED, payload: { park } });
+      } else {
+        log("savePark started");
+        dispatch({ type: SAVE_PARK_STARTED });
+        const savedPark = await (park._id
+          ? updatePark(token, park)
+          : createPark(token, park));
+        log("savePark succeeded");
+        dispatch({ type: SAVE_PARK_SUCCEEDED, payload: { park: savedPark } });
+      }
     } catch (error) {
       log("savePark failed");
       dispatch({ type: SAVE_PARK_FAILED, payload: { error } });
@@ -179,6 +250,74 @@ export const ParkProvider: React.FC<ParkProviderProps> = ({ children }) => {
       log("wsEffect - disconnecting");
       canceled = true;
       closeWebSocket?.();
+    };
+  }
+
+  function connectionChangeEffect() {
+    let canceled = false;
+
+    log("connectionChangeEffect");
+    if (!networkStatus.connected) {
+      log("no connection");
+      return;
+    }
+
+    log("internet connection");
+    makeOfflineChanges();
+
+    async function makeOfflineChanges() {
+      const queue_result = await Preferences.get({ key: "queue" });
+      if (queue_result.value) {
+        log("got offline changes");
+        const queue = JSON.parse(queue_result.value);
+
+        try {
+          for (let i = 0; i < queue.length; i++) {
+            const { park, type } = queue[i];
+            if (type === "save") {
+              const placeholder_id = park._id;
+              dispatch({ type: SAVE_PARK_STARTED });
+              const savedPark = await createPark(token, park);
+              const server_id = savedPark._id;
+
+              for (let j = i + 1; j < queue.length; j++) {
+                const { park } = queue[j];
+                if (park._id === placeholder_id) {
+                  park._id = server_id;
+                }
+              }
+
+              dispatch({
+                type: SAVE_PARK_SUCCEEDED,
+                payload: { park: savedPark },
+              });
+            } else if (type === "update") {
+              dispatch({ type: SAVE_PARK_STARTED });
+              const savedPark = await updatePark(token, park);
+              dispatch({
+                type: SAVE_PARK_SUCCEEDED,
+                payload: { park: savedPark },
+              });
+            } else {
+              log("unknown operation");
+            }
+          }
+          presentToast({
+            message: "All changes now saved! 😊",
+            duration: 2000,
+            color: "success",
+            position: "top",
+          });
+          await Preferences.remove({ key: "queue" });
+        } catch (error) {
+          log("offline operations failed");
+          dispatch({ type: SAVE_PARK_FAILED, payload: { error } });
+        }
+      }
+    }
+
+    return () => {
+      canceled = true;
     };
   }
 };

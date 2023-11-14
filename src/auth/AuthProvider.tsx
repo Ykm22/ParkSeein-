@@ -1,12 +1,17 @@
 import React, { createContext, useCallback, useEffect, useState } from "react";
 import { getLogger } from "../utils";
 import PropTypes from "prop-types";
-import { login as loginApi, obtainToken } from "./authApi";
+import { obtainToken } from "./authApi";
 import { Preferences } from "@capacitor/preferences";
+import { NetworkState, useNetwork } from "../network/useNetwork";
 
 const log = getLogger("AuthProvider");
 
-type LoginFn = (username?: string, password?: string) => void;
+type LoginFn = (
+  username?: string,
+  password?: string,
+  connected?: boolean
+) => void;
 type TokenCheckFn = () => void;
 export type HandleLogoutFn = () => void;
 
@@ -21,6 +26,7 @@ export interface AuthState {
   token: string;
   token_check?: TokenCheckFn;
   handleLogout?: HandleLogoutFn;
+  networkStatus: NetworkState;
 }
 
 const initialState: AuthState = {
@@ -29,6 +35,10 @@ const initialState: AuthState = {
   authenticationError: null,
   pendingAuthentication: false,
   token: "",
+  networkStatus: {
+    connected: true,
+    connectionType: "unknown",
+  },
 };
 
 export const AuthContext = createContext<AuthState>(initialState);
@@ -46,8 +56,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     pendingAuthentication,
     token,
   } = state;
-
-  // const token_check = useCallback<TokenCheckFn>(tokenCheck, []);
 
   const token_check = () => {
     log("token check");
@@ -80,6 +88,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       try {
         const result = await Preferences.get({ key: "jwt" });
         await Preferences.remove({ key: "jwt" });
+        await Preferences.remove({ key: "parks" });
         if (result.value) {
           setState({
             ...state,
@@ -94,6 +103,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   }
 
+  const { networkStatus } = useNetwork();
   const value = {
     isAuthenticated,
     login,
@@ -102,18 +112,33 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     token,
     token_check,
     handleLogout,
+    networkStatus,
   };
   log("render");
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 
-  function loginCallback(username?: string, password?: string): void {
+  function loginCallback(
+    username?: string,
+    password?: string,
+    connected?: boolean
+  ): void {
     log("login");
-    setState({
-      ...state,
-      pendingAuthentication: true,
-      username,
-      password,
-    });
+    if (!connected) {
+      setState({
+        ...state,
+        authenticationError: {
+          name: "InternetError",
+          message: "No internet connection",
+        },
+      });
+    } else {
+      setState({
+        ...state,
+        pendingAuthentication: true,
+        username,
+        password,
+      });
+    }
   }
 
   function authenticationEffect() {
@@ -136,7 +161,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         });
         const { username, password } = state;
         const { token } = await obtainToken(username, password);
-        // const { token } = await loginApi(username, password);
         if (canceled) {
           return;
         }

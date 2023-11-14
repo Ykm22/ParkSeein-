@@ -5,13 +5,14 @@ import {
   IonFabButton,
   IonHeader,
   IonIcon,
+  IonLabel,
   IonList,
   IonLoading,
   IonPage,
   IonTitle,
   IonToolbar,
 } from "@ionic/react";
-import { add } from "ionicons/icons";
+import { add, checkmarkCircle, closeCircle } from "ionicons/icons";
 import React, { useContext } from "react";
 import Park from "../models/Park";
 import { getLogger } from "../utils";
@@ -21,14 +22,26 @@ import { RouteComponentProps } from "react-router";
 const log = getLogger("ParkList");
 
 const ParkList: React.FC<RouteComponentProps> = ({ history }) => {
-  const { parks, fetching, fetchingError, handleLogout } =
+  const { parks, fetching, fetchingError, handleLogout, networkStatus } =
     useContext(ParkContext);
   log("render");
+  log(networkStatus?.connected);
   return (
     <IonPage>
       <IonHeader>
         <IonToolbar>
           <IonTitle slot="start">ParkSeein'</IonTitle>
+          {networkStatus?.connected ? (
+            <>
+              <IonIcon icon={checkmarkCircle} color="success" />
+              <IonLabel color="success">Online</IonLabel>
+            </>
+          ) : (
+            <>
+              <IonIcon icon={closeCircle} color="danger" />
+              <IonLabel color="danger">Offline</IonLabel>
+            </>
+          )}
           <IonButton slot="end" onClick={handleLogout}>
             Logout
           </IonButton>
