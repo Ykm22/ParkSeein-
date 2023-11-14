@@ -17,8 +17,9 @@ import {
 import { AuthContext, HandleLogoutFn } from "../auth";
 import { Preferences } from "@capacitor/preferences";
 import { NetworkState, useNetwork } from "../network/useNetwork";
-import { useIonToast } from "@ionic/react";
+import { InputChangeEventDetail, useIonToast } from "@ionic/react";
 import uuid from "uuid-random";
+import { returnUpBackOutline } from "ionicons/icons";
 
 const log = getLogger("ParkProvider");
 
@@ -33,6 +34,8 @@ export interface ParksState {
   savePark?: SaveParkFn;
   handleLogout?: HandleLogoutFn;
   networkStatus?: NetworkState;
+  loadNextPage?: () => void;
+  handleSearchInput?: (ev: CustomEvent<InputChangeEventDetail>) => void;
 }
 
 const initialState: ParksState = {
@@ -105,6 +108,60 @@ export const ParkProvider: React.FC<ParkProviderProps> = ({ children }) => {
     networkStatus,
     presentToast,
   ]);
+
+  const loadNextPage = async () => {
+    log("loadNextPage");
+    const current_page = await Preferences.get({ key: "current_page" });
+    if (!current_page.value) {
+      log("No current page value in Preferences");
+      return;
+    }
+
+    const parks_result = await Preferences.get({ key: "display_parks" });
+    if (!parks_result.value) {
+      log("No parks value in Preferences");
+      return;
+    }
+    const parks = JSON.parse(parks_result.value);
+
+    const next_page = parseInt(current_page.value) + 1;
+    log(`Current_page = ${next_page}`);
+
+    dispatch({
+      type: FETCH_PARKS_SUCCEEDED,
+      payload: {
+        parks: parks.slice(0, next_page * 10),
+      },
+    });
+
+    await Preferences.set({
+      key: "current_page",
+      value: next_page.toString(),
+    });
+  };
+
+  const handleSearchInput = async (ev: CustomEvent<InputChangeEventDetail>) => {
+    const parks_result = await Preferences.get({ key: "parks" });
+    if (!parks_result.value) {
+      return;
+    }
+    const parks = JSON.parse(parks_result.value);
+    const filtered_parks = parks.filter(
+      (park: {
+        description: { startsWith: (arg0: string | null | undefined) => any };
+      }) => park.description.startsWith(ev.detail.value)
+    );
+    dispatch({
+      type: FETCH_PARKS_SUCCEEDED,
+      payload: { parks: filtered_parks.slice(0, 10) },
+    });
+    await Preferences.set({
+      key: "display_parks",
+      value: JSON.stringify(filtered_parks),
+    });
+    await Preferences.set({ key: "current_page", value: "1" });
+  };
+
   const value = {
     parks,
     fetching,
@@ -114,6 +171,8 @@ export const ParkProvider: React.FC<ParkProviderProps> = ({ children }) => {
     savePark,
     handleLogout,
     networkStatus,
+    loadNextPage,
+    handleSearchInput,
   };
   log("returns");
 
@@ -144,7 +203,11 @@ export const ParkProvider: React.FC<ParkProviderProps> = ({ children }) => {
       if (result.value) {
         log("fetchParksStorage succeeded");
         const parks = JSON.parse(result.value);
-        dispatch({ type: FETCH_PARKS_SUCCEEDED, payload: { parks } });
+        await Preferences.set({ key: "current_page", value: "1" });
+        dispatch({
+          type: FETCH_PARKS_SUCCEEDED,
+          payload: { parks: parks.slice(0, 10) },
+        });
       }
     }
 
@@ -162,7 +225,15 @@ export const ParkProvider: React.FC<ParkProviderProps> = ({ children }) => {
             key: "parks",
             value: JSON.stringify(parks),
           });
-          dispatch({ type: FETCH_PARKS_SUCCEEDED, payload: { parks } });
+          await Preferences.set({
+            key: "display_parks",
+            value: JSON.stringify(parks),
+          });
+          await Preferences.set({ key: "current_page", value: "1" });
+          dispatch({
+            type: FETCH_PARKS_SUCCEEDED,
+            payload: { parks: parks.slice(0, 10) },
+          });
         }
       } catch (error) {
         log("fetchParksServer failed");
@@ -275,11 +346,11 @@ export const ParkProvider: React.FC<ParkProviderProps> = ({ children }) => {
           for (let i = 0; i < queue.length; i++) {
             const { park, type } = queue[i];
             if (type === "save") {
-              const placeholder_id = park._id;
               dispatch({ type: SAVE_PARK_STARTED });
               const savedPark = await createPark(token, park);
-              const server_id = savedPark._id;
 
+              const placeholder_id = park._id;
+              const server_id = savedPark._id;
               for (let j = i + 1; j < queue.length; j++) {
                 const { park } = queue[j];
                 if (park._id === placeholder_id) {

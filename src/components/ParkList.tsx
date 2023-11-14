@@ -5,10 +5,13 @@ import {
   IonFabButton,
   IonHeader,
   IonIcon,
+  IonInfiniteScroll,
+  IonInfiniteScrollContent,
   IonLabel,
   IonList,
   IonLoading,
   IonPage,
+  IonSearchbar,
   IonTitle,
   IonToolbar,
 } from "@ionic/react";
@@ -18,14 +21,22 @@ import Park from "../models/Park";
 import { getLogger } from "../utils";
 import { ParkContext } from "../contexts/ParkProvider";
 import { RouteComponentProps } from "react-router";
+import { Preferences } from "@capacitor/preferences";
 
 const log = getLogger("ParkList");
 
 const ParkList: React.FC<RouteComponentProps> = ({ history }) => {
-  const { parks, fetching, fetchingError, handleLogout, networkStatus } =
-    useContext(ParkContext);
+  const {
+    parks,
+    fetching,
+    fetchingError,
+    handleLogout,
+    networkStatus,
+    loadNextPage,
+    handleSearchInput,
+  } = useContext(ParkContext);
+
   log("render");
-  log(networkStatus?.connected);
   return (
     <IonPage>
       <IonHeader>
@@ -49,6 +60,15 @@ const ParkList: React.FC<RouteComponentProps> = ({ history }) => {
       </IonHeader>
       <IonContent>
         <IonLoading isOpen={fetching} message="Loading parks" />
+        <IonSearchbar
+          placeholder="Search parks"
+          debounce={1000}
+          onIonInput={(ev) => {
+            if (handleSearchInput) {
+              handleSearchInput(ev);
+            }
+          }}
+        />
         {parks && (
           <IonList>
             {parks.map(
@@ -72,6 +92,16 @@ const ParkList: React.FC<RouteComponentProps> = ({ history }) => {
             )}
           </IonList>
         )}
+        <IonInfiniteScroll
+          onIonInfinite={(ev) => {
+            if (loadNextPage) {
+              loadNextPage();
+              setTimeout(() => ev.target.complete(), 500);
+            }
+          }}
+        >
+          <IonInfiniteScrollContent></IonInfiniteScrollContent>
+        </IonInfiniteScroll>
         {fetchingError && (
           <div>{fetchingError.message || "Failed to load parks"}</div>
         )}
