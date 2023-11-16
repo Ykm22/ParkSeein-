@@ -1,5 +1,6 @@
 import {
   IonButton,
+  IonCheckbox,
   IonContent,
   IonFab,
   IonFabButton,
@@ -7,6 +8,9 @@ import {
   IonIcon,
   IonInfiniteScroll,
   IonInfiniteScrollContent,
+  IonInput,
+  IonItem,
+  IonItemDivider,
   IonLabel,
   IonList,
   IonLoading,
@@ -34,6 +38,7 @@ const ParkList: React.FC<RouteComponentProps> = ({ history }) => {
     networkStatus,
     loadNextPage,
     handleSearchInput,
+    handleEcoFriendlyFilter,
   } = useContext(ParkContext);
 
   log("render");
@@ -69,6 +74,19 @@ const ParkList: React.FC<RouteComponentProps> = ({ history }) => {
             }
           }}
         />
+        <IonItem>
+          {/* <IonLabel>Eco friendly </IonLabel> */}
+          <IonCheckbox
+            onIonChange={(ev) => {
+              if (handleEcoFriendlyFilter) {
+                handleEcoFriendlyFilter(ev);
+              }
+            }}
+          >
+            Reaches Eco Target
+          </IonCheckbox>
+        </IonItem>
+        <IonItemDivider />
         {parks && (
           <IonList>
             {parks.map(
