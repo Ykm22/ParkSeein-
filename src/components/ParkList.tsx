@@ -96,6 +96,7 @@ const ParkList: React.FC<RouteComponentProps> = ({ history }) => {
                 squared_kms,
                 last_review,
                 reaches_eco_target,
+                photo,
               }) => (
                 <Park
                   key={_id}
@@ -104,6 +105,7 @@ const ParkList: React.FC<RouteComponentProps> = ({ history }) => {
                   squared_kms={squared_kms}
                   last_review={last_review}
                   reaches_eco_target={reaches_eco_target}
+                  photo={photo}
                   onEdit={(id) => history.push(`/park/${id}`)}
                 />
               )
