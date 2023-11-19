@@ -26,6 +26,7 @@ import { getLogger } from "../utils";
 import { ParkContext } from "../contexts/ParkProvider";
 import { RouteComponentProps } from "react-router";
 import { Preferences } from "@capacitor/preferences";
+import "./style.css";
 
 const log = getLogger("ParkList");
 
@@ -47,17 +48,31 @@ const ParkList: React.FC<RouteComponentProps> = ({ history }) => {
       <IonHeader>
         <IonToolbar>
           <IonTitle slot="start">ParkSeein'</IonTitle>
-          {networkStatus?.connected ? (
-            <>
-              <IonIcon icon={checkmarkCircle} color="success" />
-              <IonLabel color="success">Online</IonLabel>
-            </>
-          ) : (
-            <>
-              <IonIcon icon={closeCircle} color="danger" />
-              <IonLabel color="danger">Offline</IonLabel>
-            </>
-          )}
+          <div className="scrolling-text-container">
+            {networkStatus?.connected ? (
+              <>
+                <IonIcon
+                  icon={checkmarkCircle}
+                  color="success"
+                  className="scrolling-text"
+                />
+                <IonLabel color="success" className="scrolling-text">
+                  Online
+                </IonLabel>
+              </>
+            ) : (
+              <>
+                <IonIcon
+                  icon={closeCircle}
+                  color="danger"
+                  className="scrolling-text"
+                />
+                <IonLabel color="danger" className="scrolling-text">
+                  Offline
+                </IonLabel>
+              </>
+            )}
+          </div>
           <IonButton slot="end" onClick={handleLogout}>
             Logout
           </IonButton>
@@ -97,6 +112,7 @@ const ParkList: React.FC<RouteComponentProps> = ({ history }) => {
                 last_review,
                 reaches_eco_target,
                 photo,
+                coordinates,
               }) => (
                 <Park
                   key={_id}
@@ -106,6 +122,7 @@ const ParkList: React.FC<RouteComponentProps> = ({ history }) => {
                   last_review={last_review}
                   reaches_eco_target={reaches_eco_target}
                   photo={photo}
+                  coordinates={coordinates}
                   onEdit={(id) => history.push(`/park/${id}`)}
                 />
               )

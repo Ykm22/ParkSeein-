@@ -29,8 +29,16 @@ import { AuthContext } from "../auth";
 import { MyPhoto, usePhotos } from "../custom_hooks/usePhotos";
 import { camera } from "ionicons/icons";
 import MyMap, { MarkerCoordinates } from "./MyMap";
+import { MyModal } from "./MyModal";
 
 const log = getLogger("ParkEdit");
+
+export interface MyDatepickerModal {
+  showDatePicker: any;
+  last_review: Date;
+  setShowDatepicker: any;
+  handleDateSelection: any;
+}
 
 interface ParkEditProps
   extends RouteComponentProps<{
@@ -61,10 +69,6 @@ const ParkEdit: React.FC<ParkEditProps> = ({ history, match }) => {
   });
 
   const myMapRef = useRef<myMapRef | null>(null);
-
-  // useEffect(() => {
-  //   log(`new coordinates lng:${coordinates?.lng}, lat:${coordinates?.lat}`);
-  // }, [coordinates]);
 
   useEffect(() => {
     log("useEffect");
@@ -165,26 +169,12 @@ const ParkEdit: React.FC<ParkEditProps> = ({ history, match }) => {
 
           <IonItem>
             <IonButton onClick={openDatepicker}>Review Date</IonButton>
-            <IonModal isOpen={showDatePicker}>
-              <IonHeader>
-                <IonToolbar>
-                  <IonTitle>Select a Date</IonTitle>
-                  <IonButtons slot="end">
-                    <IonButton onClick={() => setShowDatepicker(false)}>
-                      Close
-                    </IonButton>
-                  </IonButtons>
-                </IonToolbar>
-              </IonHeader>
-              <IonContent>
-                <IonDatetime
-                  onIonChange={(e) =>
-                    handleDateSelection(String(e.detail.value))
-                  }
-                  value={last_review.toISOString()}
-                ></IonDatetime>
-              </IonContent>
-            </IonModal>
+            <MyModal
+              showDatePicker={showDatePicker}
+              last_review={last_review}
+              setShowDatepicker={setShowDatepicker}
+              handleDateSelection={handleDateSelection}
+            />
           </IonItem>
 
           <IonImg onClick={() => log("hi")} src={photo?.webviewPath} />
