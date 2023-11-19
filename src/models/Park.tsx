@@ -1,6 +1,7 @@
 import { IonItem, IonLabel } from "@ionic/react";
 import React, { memo } from "react";
 import { MyPhoto } from "../custom_hooks/usePhotos";
+import { MarkerCoordinates } from "../components/MyMap";
 
 export interface ParkProps {
   _id?: string;
@@ -9,6 +10,7 @@ export interface ParkProps {
   last_review: Date;
   reaches_eco_target: boolean;
   photo: MyPhoto;
+  coordinates: MarkerCoordinates;
 }
 
 interface ParkPropsExt extends ParkProps {

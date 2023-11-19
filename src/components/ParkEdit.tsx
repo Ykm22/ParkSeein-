@@ -28,6 +28,7 @@ import {
 import { AuthContext } from "../auth";
 import { MyPhoto, usePhotos } from "../custom_hooks/usePhotos";
 import { camera } from "ionicons/icons";
+import MyMap, { MarkerCoordinates } from "./MyMap";
 
 const log = getLogger("ParkEdit");
 
@@ -35,6 +36,10 @@ interface ParkEditProps
   extends RouteComponentProps<{
     id?: string;
   }> {}
+
+export interface myMapRef {
+  getMarkerCoordinates: () => { lat: number; lng: number };
+}
 
 const ParkEdit: React.FC<ParkEditProps> = ({ history, match }) => {
   const { parks, saving, savingError, savePark } = useContext(ParkContext);
@@ -50,17 +55,30 @@ const ParkEdit: React.FC<ParkEditProps> = ({ history, match }) => {
     filepath: "",
   });
 
+  const [coordinates, setCoordinates] = useState<MarkerCoordinates>({
+    lat: 0,
+    lng: 0,
+  });
+
+  const myMapRef = useRef<myMapRef | null>(null);
+
+  // useEffect(() => {
+  //   log(`new coordinates lng:${coordinates?.lng}, lat:${coordinates?.lat}`);
+  // }, [coordinates]);
+
   useEffect(() => {
     log("useEffect");
     const routeId = match.params.id || "";
     const park = parks?.find((park) => park._id === routeId);
     setPark(park);
     if (park) {
+      log(park.coordinates);
       setDescription(park.description);
       setSquaredKms(park.squared_kms);
       setReachesEcoTarget(park.reaches_eco_target);
       setLastReview(new Date(park.last_review));
       setPhoto(park.photo);
+      setCoordinates(park.coordinates);
     }
   }, [match.params.id, parks]);
 
@@ -73,8 +91,16 @@ const ParkEdit: React.FC<ParkEditProps> = ({ history, match }) => {
           reaches_eco_target,
           last_review,
           photo,
+          coordinates,
         }
-      : { description, squared_kms, reaches_eco_target, last_review, photo };
+      : {
+          description,
+          squared_kms,
+          reaches_eco_target,
+          last_review,
+          photo,
+          coordinates,
+        };
     savePark && savePark(editedPark).then(() => history.goBack());
   }, [
     park,
@@ -84,6 +110,7 @@ const ParkEdit: React.FC<ParkEditProps> = ({ history, match }) => {
     reaches_eco_target,
     last_review,
     photo,
+    coordinates,
     history,
   ]);
 
@@ -169,6 +196,13 @@ const ParkEdit: React.FC<ParkEditProps> = ({ history, match }) => {
           >
             <IonIcon icon={camera} />
           </IonFabButton>
+          {coordinates && coordinates.lat && coordinates.lng && (
+            <MyMap
+              lat={coordinates.lat}
+              lng={coordinates.lng}
+              setCoordinates={setCoordinates}
+            />
+          )}
           <IonLoading isOpen={saving} />
           {savingError && (
             <div>{savingError.message || "Failed to save park"}</div>
