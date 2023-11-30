@@ -15,7 +15,7 @@ export function useCamera() {
     return Camera.getPhoto({
       resultType: CameraResultType.Base64,
       source: CameraSource.Camera,
-      quality: 100,
+      quality: 20,
     });
   }, []);
 
